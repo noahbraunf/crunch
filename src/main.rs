@@ -1,11 +1,22 @@
 use clap::Parser;
 
 fn gen_word(prev: &mut Vec<Option<String>>, word_list: &Vec<String>, len: usize, count: usize) {
-    let mut word = word_list.get(rand::random::<usize>() % len).unwrap().to_string();
+    let mut word = word_list
+        .get(rand::random::<usize>() % len)
+        .unwrap()
+        .to_string();
     let prev_len = prev.len() - 1;
-    while prev[..] == word_list.iter().map(|w| Some(w.clone())).collect::<Vec<_>>()[0..(len-1)] 
-        && prev.contains(&Some(word.clone())) {
-        word = word_list.get(rand::random::<usize>() % len).unwrap().to_string();
+    while prev[..]
+        == word_list
+            .iter()
+            .map(|w| Some(w.clone()))
+            .collect::<Vec<_>>()[0..(len - 1)]
+        && prev.contains(&Some(word.clone()))
+    {
+        word = word_list
+            .get(rand::random::<usize>() % len)
+            .unwrap()
+            .to_string();
     }
     print!("{} ", word);
     prev[prev_len % count] = Some(word);
