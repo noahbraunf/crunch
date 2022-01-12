@@ -1,6 +1,16 @@
-use clap::Parser;
+#![warn(clippy::pedantic)]
 
-fn gen_word(prev: &mut Vec<Option<String>>, word_list: &Vec<String>, len: usize, count: usize) {
+use clap::Parser;
+use std::fs;
+use std::io::{self, Write};
+
+fn gen_word(
+    prev: &mut [Option<String>],
+    word_list: &[String],
+    len: usize,
+    count: usize,
+    out: &mut impl Write,
+) {
     let mut word = word_list
         .get(rand::random::<usize>() % len)
         .unwrap()
@@ -18,33 +28,46 @@ fn gen_word(prev: &mut Vec<Option<String>>, word_list: &Vec<String>, len: usize,
             .unwrap()
             .to_string();
     }
-    print!("{} ", word);
+    write!(*out, "{} ", word).unwrap();
     prev[prev_len % count] = Some(word);
 }
 
-fn gen_words(count: Option<usize>, words: Vec<String>) {
+fn gen_words(count: Option<usize>, words: &[String], writer: &mut impl Write) {
     let word_amt = words.len();
     let mut prev = vec![None; word_amt - 1];
 
     if let Some(count) = count {
         for i in 1..=count {
-            gen_word(&mut prev, &words, word_amt, i);
+            gen_word(&mut prev, words, word_amt, i, writer);
         }
     } else {
         let mut count = 1;
         loop {
-            gen_word(&mut prev, &words, word_amt, count);
+            gen_word(&mut prev, words, word_amt, count, writer);
             count += 1;
         }
     }
 }
 
 fn main() {
-    let args = Args::parse();
-    let words: Vec<String> = args.words.split(" ").map(|x| x.into()).collect();
+    let mut args = Args::parse();
+    let words: Vec<String> = args.words.split(' ').map(ToString::to_string).collect();
     let count = args.count;
-    gen_words(count, words);
-    println!("");
+    if let Some(path) = args.output.as_mut() {
+        let file = fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(path)
+            .expect("Could not create or open a file from path supplied");
+        let mut writer = io::BufWriter::new(file);
+        gen_words(count, &words, &mut writer);
+        writeln!(writer).unwrap();
+    } else {
+        let stdout = io::stdout();
+        let mut writer = stdout.lock();
+        gen_words(count, &words, &mut writer);
+        writeln!(writer).unwrap();
+    }
 }
 
 #[derive(Parser, Debug)]
@@ -57,4 +80,8 @@ struct Args {
     /// Amount of words to print out
     #[clap(short, long)]
     count: Option<usize>,
+
+    /// Output file/stream. Default is standard output
+    #[clap(short, long)]
+    output: Option<std::path::PathBuf>,
 }
