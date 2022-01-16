@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 clap = { version = "3.0", features = ["derive"] }
-rand = { version = "0.8", features = ["small_rng"] }
+rand = { version = "0.8", features = ["alloc"] }
 
 [profile.release]
 lto = true

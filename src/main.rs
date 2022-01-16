@@ -1,9 +1,8 @@
 #![warn(clippy::pedantic)]
 
 use clap::Parser;
-use rand::distributions::Distribution;
-use rand::distributions::WeightedIndex;
 use rand::rngs::ThreadRng;
+use rand::seq::SliceRandom;
 use std::fs;
 use std::io::{self, Write};
 
@@ -14,10 +13,12 @@ fn gen_word(
     count: usize,
     out: &mut impl Write,
     rng: &mut ThreadRng,
-    dist: &WeightedIndex<usize>,
+    dist: &[usize],
 ) {
     let mut word = word_list
-        .get(rand::random::<usize>() % len)
+        .choose_weighted(rng, |x| {
+            dist[word_list.iter().position(|r| r == x).unwrap()]
+        })
         .unwrap()
         .to_string();
     let prev_len = prev.len() - 1;
@@ -28,7 +29,12 @@ fn gen_word(
             .collect::<Vec<_>>()[0..(len - 1)]
         && prev.contains(&Some(word.clone()))
     {
-        word = word_list.get(dist.sample(rng)).unwrap().to_string();
+        word = word_list
+            .choose_weighted(rng, |x| {
+                dist[word_list.iter().position(|r| r == x).unwrap()]
+            })
+            .unwrap()
+            .to_string();
     }
     write!(*out, "{} ", word).unwrap();
     prev[prev_len % count] = Some(word);
@@ -39,7 +45,7 @@ fn gen_words(
     words: &[String],
     writer: &mut impl Write,
     rng: &mut ThreadRng,
-    dist: &WeightedIndex<usize>,
+    dist: &[usize],
 ) {
     let word_amt = words.len();
     let mut prev = vec![None; word_amt - 1];
@@ -60,19 +66,20 @@ fn gen_words(
 fn main() {
     let mut args = Args::parse();
     let words: Vec<String> = if let Some(ref a) = args.words {
-        a.to_string()
+        a
     } else {
-        "the giant cinnamon toast crunch".to_string()
+        "the giant cinnamon toast crunch"
     }
     .split(' ')
     .map(ToString::to_string)
     .collect();
-    let dist = WeightedIndex::new(if args.words.is_some() {
-        &vec![1; words.len()]
+    let dist;
+    if words == vec!["the", "giant", "cinnamon", "toast", "crunch"] {
+        dist = vec![3, 1, 1, 1, 1];
     } else {
-        &vec![2, 1, 1, 1, 1]
-    })
-    .unwrap();
+        println!("not ctc");
+        dist = vec![1; words.len()];
+    }
     let count = args.count;
     let mut rng = rand::thread_rng();
     if let Some(path) = args.output.as_mut() {
